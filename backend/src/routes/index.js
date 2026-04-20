@@ -1,0 +1,31 @@
+const express = require('express')
+
+const authRoutes = require('../modules/auth/auth.routes')
+const usersRoutes = require('../modules/users/users.routes')
+const sitesRoutes = require('../modules/sites/sites.routes')
+const parameterRoutes = require('../modules/parameters/parameters.routes')
+const assignmentRoutes = require('../modules/assignments/assignments.routes')
+const attendanceRoutes = require('../modules/attendance/attendance.routes')
+const submissionRoutes = require('../modules/submissions/submissions.routes')
+const dashboardRoutes = require('../modules/dashboard/dashboard.routes')
+const reportRoutes = require('../modules/reports/reports.routes')
+const notificationRoutes = require('../modules/notifications/notifications.routes')
+const auditLogRoutes = require('../modules/audit-logs/auditLogs.routes')
+const settingsRoutes = require('../modules/settings/settings.routes')
+
+const router = express.Router()
+
+router.use('/auth', authRoutes)
+router.use('/users', usersRoutes)
+router.use('/sites', sitesRoutes)
+router.use(parameterRoutes)
+router.use(assignmentRoutes)
+router.use('/attendance', attendanceRoutes)
+router.use('/submissions', submissionRoutes)
+router.use('/dashboard', dashboardRoutes)
+router.use('/reports', reportRoutes)
+router.use('/notifications', notificationRoutes)
+router.use('/audit-logs', auditLogRoutes)
+router.use('/settings', settingsRoutes)
+
+module.exports = router
