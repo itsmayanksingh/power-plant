@@ -39,3 +39,12 @@ export async function changePassword(payload: { currentPassword: string; newPass
     throw new Error(getApiErrorMessage(error));
   }
 }
+
+export async function impersonateAdmin(adminId: string) {
+  try {
+    const response = await api.post(`${endpoints.auth.impersonate}/${adminId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error));
+  }
+}

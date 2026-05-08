@@ -38,7 +38,7 @@ export function Sidebar({
         )}
       >
         <div className="flex h-full flex-col p-3">
-          <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+          <div className="mb-4 rounded-xl border border-neutral-200 bg-gradient-to-r from-neutral-50 to-blue-50 p-3 shadow-sm">
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-black p-2 text-white">
                 <Leaf className="h-4 w-4" />
@@ -64,7 +64,7 @@ export function Sidebar({
                   className={cn(
                     "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
                     active
-                      ? "border border-neutral-300 bg-neutral-100 text-black"
+                      ? "border border-blue-200 bg-blue-50 text-black shadow-sm"
                       : "text-neutral-700 hover:bg-neutral-100 hover:text-black",
                   )}
                 >

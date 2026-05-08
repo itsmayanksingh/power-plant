@@ -1,4 +1,5 @@
 const { z } = require('zod')
+const pageOrLimitSchema = z.union([z.string(), z.number()]).optional()
 
 const createSubmissionSchema = z.object({
   body: z.object({
@@ -14,8 +15,8 @@ const createSubmissionSchema = z.object({
 
 const listSchema = z.object({
   query: z.object({
-    page: z.string().optional(),
-    limit: z.string().optional(),
+    page: pageOrLimitSchema,
+    limit: pageOrLimitSchema,
     siteId: z.string().uuid().optional(),
     submittedBy: z.string().uuid().optional(),
     date: z.string().optional(),

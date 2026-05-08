@@ -3,7 +3,7 @@ class ApiConstants {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000',
+    defaultValue: 'http://192.168.1.4:5000',
   );
   static const String apiPrefix = '/api/v1';
 
@@ -18,4 +18,3 @@ class ApiConstants {
   static const String attendanceCheckOut = '$apiPrefix/attendance/check-out';
   static const String attendanceMy = '$apiPrefix/attendance/my';
 }
-

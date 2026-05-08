@@ -3,7 +3,7 @@ const { success } = require('../../utils/apiResponse')
 const service = require('./parameters.service')
 
 const listBySite = asyncHandler(async (req, res) => {
-  const data = await service.listBySite({ siteId: req.params.siteId })
+  const data = await service.listBySite({ siteId: req.params.siteId, actor: req.user })
   return success(res, data)
 })
 

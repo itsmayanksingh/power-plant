@@ -1,4 +1,5 @@
 const { z } = require('zod')
+const pageOrLimitSchema = z.union([z.string(), z.number()]).optional()
 
 const checkInSchema = z.object({
   body: z.object({
@@ -19,8 +20,8 @@ const listSchema = z.object({
     userId: z.string().uuid().optional(),
     siteId: z.string().uuid().optional(),
     date: z.string().optional(),
-    page: z.string().optional(),
-    limit: z.string().optional()
+    page: pageOrLimitSchema,
+    limit: pageOrLimitSchema
   })
 })
 

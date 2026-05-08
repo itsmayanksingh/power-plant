@@ -3,7 +3,7 @@ const { success } = require('../../utils/apiResponse')
 const service = require('./reports.service')
 
 const submissions = asyncHandler(async (req, res) => {
-  const rows = await service.submissionsReport({ query: req.query })
+  const rows = await service.submissionsReport({ query: req.query, actor: req.user })
   if (req.query.format === 'csv') {
     const csv = service.toCsv(rows)
     res.setHeader('Content-Type', 'text/csv')
@@ -13,7 +13,7 @@ const submissions = asyncHandler(async (req, res) => {
 })
 
 const attendance = asyncHandler(async (req, res) => {
-  const rows = await service.attendanceReport({ query: req.query })
+  const rows = await service.attendanceReport({ query: req.query, actor: req.user })
   if (req.query.format === 'csv') {
     const csv = service.toCsv(rows)
     res.setHeader('Content-Type', 'text/csv')
@@ -23,7 +23,7 @@ const attendance = asyncHandler(async (req, res) => {
 })
 
 const parameterAnalysis = asyncHandler(async (req, res) => {
-  const rows = await service.parameterAnalysis({ query: req.query })
+  const rows = await service.parameterAnalysis({ query: req.query, actor: req.user })
   return success(res, rows)
 })
 

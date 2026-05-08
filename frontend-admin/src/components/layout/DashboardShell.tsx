@@ -14,7 +14,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const openLogs = useUiStore((s) => s.openLogs);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-neutral-50 text-black">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe_0%,_#f8fafc_35%,_#ffffff_70%)] text-black">
       <div className="flex min-h-screen">
         <Sidebar mobileOpen={sidebarOpen} collapsed={sidebarCollapsed} onCloseMobile={closeSidebar} />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">

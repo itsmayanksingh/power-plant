@@ -4,6 +4,7 @@ export const endpoints = {
     refresh: "/api/v1/auth/refresh",
     logout: "/api/v1/auth/logout",
     changePassword: "/api/v1/auth/change-password",
+    impersonate: "/api/v1/auth/impersonate",
     me: "/api/v1/users/me",
   },
   users: "/api/v1/users",

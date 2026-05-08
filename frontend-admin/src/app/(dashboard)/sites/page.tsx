@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
@@ -15,8 +16,17 @@ import { AppModal } from "@/components/common/AppModal";
 import { queryKeys } from "@/lib/api/query-keys";
 import { createSite, deleteSite, getSites, updateSite } from "@/services/sites.service";
 import type { Site } from "@/types/site";
+import { useAuthStore } from "@/store/auth.store";
+import { readAccessTokenPayload } from "@/lib/auth/jwt-payload";
+import { getAccessToken, getOriginalSession, getRefreshToken, saveOriginalSession } from "@/lib/auth/tokens";
+import { impersonateAdmin } from "@/services/auth.service";
 
 export default function SitesPage() {
+  const router = useRouter();
+  const currentUser = useAuthStore((s) => s.user);
+  const setSession = useAuthStore((s) => s.setSession);
+  const role = currentUser?.role ?? readAccessTokenPayload()?.role;
+  const isSuperadmin = role === "superadmin";
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editSite, setEditSite] = useState<Site | null>(null);
@@ -59,7 +69,27 @@ export default function SitesPage() {
     onError: (error: Error) => toast.error(error.message || "Failed to remove site"),
   });
 
+  const impersonateMutation = useMutation({
+    mutationFn: (adminId: string) => impersonateAdmin(adminId),
+    onSuccess: (res) => {
+      setSession(res.data);
+      toast.success("Switched to admin dashboard context");
+      router.push("/dashboard");
+    },
+    onError: (error: Error) => toast.error(error.message || "Unable to switch to admin view"),
+  });
+
   const sites = useMemo(() => sitesQuery.data?.data?.items || [], [sitesQuery.data]);
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date);
+  };
 
   const handleCreate = async () => {
     try {
@@ -76,6 +106,40 @@ export default function SitesPage() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleImpersonate = async (site: Site) => {
+    if (!site.created_by) {
+      toast.error("Creator admin not available");
+      return;
+    }
+    if (site.createdByRole !== "admin" && site.created_by_role !== "admin") {
+      toast.error("Switch is only available for admin-created sites");
+      return;
+    }
+
+    const original = getOriginalSession();
+    if (!original) {
+      const accessToken = getAccessToken();
+      const refreshToken = getRefreshToken();
+      const payload = readAccessTokenPayload();
+      if (!accessToken || !refreshToken || !payload?.id || !payload?.email || payload.role !== "superadmin") {
+        toast.error("Unable to preserve superadmin session");
+        return;
+      }
+      saveOriginalSession({
+        accessToken,
+        refreshToken,
+        user: {
+          id: payload.id,
+          email: payload.email,
+          name: currentUser?.name || "Superadmin",
+          role: "superadmin",
+        },
+      });
+    }
+
+    await impersonateMutation.mutateAsync(site.created_by);
   };
 
   return (
@@ -105,11 +169,13 @@ export default function SitesPage() {
 
       {!sitesQuery.isLoading && !sitesQuery.isError && sites.length ? (
         <DataTableWrapper>
-          <table className="min-w-full">
+          <table className="min-w-[1100px]">
             <thead className="bg-neutral-50 text-left text-neutral-700">
               <tr>
                 <th>Name</th>
                 <th>Location</th>
+                <th>Created By</th>
+                <th>Created At</th>
                 <th>Parameters</th>
                 <th>Assignments</th>
                 <th>Actions</th>
@@ -120,6 +186,27 @@ export default function SitesPage() {
                 <tr key={site.id} className="border-t border-neutral-200">
                   <td>{site.name}</td>
                   <td>{site.location}</td>
+                  <td>
+                    <div className="group relative inline-flex items-center gap-2">
+                      <span
+                        className="cursor-help rounded px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                        title={`Full email: ${site.createdByEmail || site.created_by_email || "-"} | Created by: ${site.createdByRole || site.created_by_role || "-"}`}
+                      >
+                        {site.createdByName || site.created_by_name || "-"}
+                      </span>
+                      {isSuperadmin && (site.createdByRole === "admin" || site.created_by_role === "admin") ? (
+                        <button
+                          type="button"
+                          onClick={() => handleImpersonate(site)}
+                          className="hidden rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100 group-hover:inline-flex"
+                          disabled={impersonateMutation.isPending}
+                        >
+                          {impersonateMutation.isPending ? "Switching..." : "Open Admin Dashboard"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td>{formatDateTime(site.created_at)}</td>
                   <td>{site.parameterCount ?? 0}</td>
                   <td>{site.assignmentCount ?? 0}</td>
                   <td>

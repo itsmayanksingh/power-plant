@@ -18,7 +18,7 @@ const getById = asyncHandler(async (req, res) => {
 })
 
 const missing = asyncHandler(async (req, res) => {
-  const data = await service.missingSubmissions({ date: req.query.date })
+  const data = await service.missingSubmissions({ date: req.query.date, actor: req.user })
   return success(res, data)
 })
 

@@ -1,11 +1,12 @@
 const { z } = require('zod')
 
 const userRole = z.enum(['superadmin', 'admin', 'employee'])
+const pageOrLimitSchema = z.union([z.string(), z.number()]).optional()
 
 const listUsersSchema = z.object({
   query: z.object({
-    page: z.string().optional(),
-    limit: z.string().optional(),
+    page: pageOrLimitSchema,
+    limit: pageOrLimitSchema,
     role: userRole.optional(),
     isActive: z.enum(['true', 'false']).optional(),
     search: z.string().optional()

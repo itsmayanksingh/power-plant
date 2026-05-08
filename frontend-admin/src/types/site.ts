@@ -1,9 +1,17 @@
 export type Site = {
   id: string;
+  created_by?: string | null;
   name: string;
   location: string;
   description?: string | null;
   is_active: boolean;
+  created_at?: string;
+  created_by_name?: string | null;
+  createdByName?: string | null;
+  created_by_role?: string | null;
+  createdByRole?: string | null;
+  created_by_email?: string | null;
+  createdByEmail?: string | null;
   parameterCount?: number;
   assignmentCount?: number;
 };

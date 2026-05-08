@@ -3,12 +3,12 @@ const { success } = require('../../utils/apiResponse')
 const service = require('./sites.service')
 
 const list = asyncHandler(async (req, res) => {
-  const data = await service.listSites({ query: req.query })
+  const data = await service.listSites({ query: req.query, actor: req.user })
   return success(res, data)
 })
 
 const getById = asyncHandler(async (req, res) => {
-  const data = await service.getSiteById({ id: req.params.id })
+  const data = await service.getSiteById({ id: req.params.id, actor: req.user })
   return success(res, data)
 })
 

@@ -1,11 +1,12 @@
 const { z } = require('zod')
+const pageOrLimitSchema = z.union([z.string(), z.number()]).optional()
 
 const idSchema = z.object({ params: z.object({ id: z.string().uuid() }) })
 
 const listSitesSchema = z.object({
   query: z.object({
-    page: z.string().optional(),
-    limit: z.string().optional(),
+    page: pageOrLimitSchema,
+    limit: pageOrLimitSchema,
     isActive: z.enum(['true', 'false']).optional(),
     search: z.string().optional()
   })

@@ -8,7 +8,7 @@ const list = asyncHandler(async (req, res) => {
 })
 
 const send = asyncHandler(async (req, res) => {
-  const data = await service.create(req.body)
+  const data = await service.create({ actor: req.user, ...req.body })
   return success(res, data, 'Notification sent', 201)
 })
 

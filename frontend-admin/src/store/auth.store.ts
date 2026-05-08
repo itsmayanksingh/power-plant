@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { AuthSession, User } from "@/types/user";
-import { clearAuthTokens, setAuthTokens } from "@/lib/auth/tokens";
+import { clearAuthTokens, clearOriginalSession, setAuthTokens } from "@/lib/auth/tokens";
 
 type AuthState = {
   user: User | null;
@@ -22,6 +22,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user, isAuthenticated: true }),
   logout: () => {
     clearAuthTokens();
+    clearOriginalSession();
     set({ user: null, isAuthenticated: false });
   },
 }));

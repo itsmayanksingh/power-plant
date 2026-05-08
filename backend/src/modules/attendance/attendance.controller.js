@@ -13,7 +13,7 @@ const checkOut = asyncHandler(async (req, res) => {
 })
 
 const list = asyncHandler(async (req, res) => {
-  const data = await service.list({ query: req.query })
+  const data = await service.list({ query: req.query, actor: req.user })
   return success(res, data)
 })
 
@@ -23,7 +23,7 @@ const my = asyncHandler(async (req, res) => {
 })
 
 const summary = asyncHandler(async (req, res) => {
-  const data = await service.summary({ query: req.query })
+  const data = await service.summary({ query: req.query, actor: req.user })
   return success(res, data)
 })
 

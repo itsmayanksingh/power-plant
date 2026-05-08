@@ -3,12 +3,22 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Factory, CalendarCheck2, ClipboardList, MessageSquareText, BarChart3 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { PageShell } from "@/components/layout/PageShell";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { queryKeys } from "@/lib/api/query-keys";
 import { getAttendanceToday, getDashboardStats, getMissingToday, getRecentSubmissions, getSiteWiseStats } from "@/services/dashboard.service";
+
+const SiteSubmissionsBarChart = dynamic(
+  () => import("@/components/charts/SiteSubmissionsBarChart").then((m) => m.SiteSubmissionsBarChart),
+  { ssr: false },
+);
+const SubmissionStatusPieChart = dynamic(
+  () => import("@/components/charts/SubmissionStatusPieChart").then((m) => m.SubmissionStatusPieChart),
+  { ssr: false },
+);
 
 type SiteWiseRow = { id: string; name: string; submissions: number };
 
@@ -39,15 +49,27 @@ export default function DashboardPage() {
 
   const cards = stats.data?.data || {};
 
-  const chartRows = useMemo(() => {
+  const siteChartRows = useMemo(() => {
     const rows = (siteWise.data?.data || []) as SiteWiseRow[];
-    const max = rows.reduce((acc, row) => Math.max(acc, Number(row.submissions || 0)), 0) || 1;
     return rows.map((row) => ({
-      ...row,
+      name: row.name,
       value: Number(row.submissions || 0),
-      width: Math.max(6, Math.round((Number(row.submissions || 0) / max) * 100)),
     }));
   }, [siteWise.data]);
+
+  const submissionStatusData = useMemo(() => {
+    const rows = (recent.data?.data || []) as Array<{ status: string }>;
+    const bucket: Record<string, number> = { pending: 0, approved: 0, rejected: 0 };
+    for (const row of rows) {
+      const key = (row.status || "pending").toLowerCase();
+      if (key in bucket) bucket[key] += 1;
+    }
+    return [
+      { name: "Pending", value: bucket.pending, color: "#f59e0b" },
+      { name: "Approved", value: bucket.approved, color: "#22c55e" },
+      { name: "Rejected", value: bucket.rejected, color: "#ef4444" },
+    ];
+  }, [recent.data]);
 
   if (stats.isLoading) return <LoadingState label="Loading dashboard..." />;
   if (stats.isError) return <ErrorState message={stats.error.message} />;
@@ -94,8 +116,6 @@ export default function DashboardPage() {
       chip: "text-amber-700 bg-amber-50 border-amber-200",
     },
   ];
-
-  const barColors = ["bg-sky-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500", "bg-amber-500", "bg-indigo-500"];
 
   return (
     <PageShell title="Dashboard" description="Operational overview and quick status">
@@ -199,21 +219,11 @@ export default function DashboardPage() {
 
           {siteWise.isLoading ? <LoadingState label="Loading graph..." /> : null}
           {siteWise.isError ? <ErrorState message={siteWise.error.message} /> : null}
-          {!siteWise.isLoading && !siteWise.isError && chartRows.length === 0 ? <EmptyState message="No graph data." /> : null}
+          {!siteWise.isLoading && !siteWise.isError && siteChartRows.length === 0 ? <EmptyState message="No graph data." /> : null}
 
-          {!siteWise.isLoading && !siteWise.isError && chartRows.length > 0 ? (
-            <div className="mt-4 space-y-3">
-              {chartRows.map((row, index) => (
-                <div key={row.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-neutral-700">{row.name}</span>
-                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">{formatNumber(row.value)}</span>
-                  </div>
-                  <div className="h-3 rounded-full bg-neutral-100">
-                    <div className={`h-3 rounded-full transition-all ${barColors[index % barColors.length]}`} style={{ width: `${row.width}%` }} />
-                  </div>
-                </div>
-              ))}
+          {!siteWise.isLoading && !siteWise.isError && siteChartRows.length > 0 ? (
+            <div className="mt-4 h-72">
+              <SiteSubmissionsBarChart data={siteChartRows} />
             </div>
           ) : null}
         </div>
@@ -244,6 +254,16 @@ export default function DashboardPage() {
             <button type="button" onClick={sendMessage} className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700">
               Send
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <h3 className="text-lg font-semibold">Submission Status Mix</h3>
+          <p className="mt-1 text-xs text-neutral-500">Recent submissions status distribution</p>
+          <div className="mt-4 h-72">
+            <SubmissionStatusPieChart data={submissionStatusData} />
           </div>
         </div>
       </section>

@@ -55,3 +55,13 @@ export async function deactivateUser(id: string) {
     throw new Error(getApiErrorMessage(error));
   }
 }
+
+export async function deleteUser(id: string) {
+  try {
+    // Soft delete mapped to deactivate endpoint.
+    const response = await api.patch(`${endpoints.users}/${id}/deactivate`);
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error));
+  }
+}

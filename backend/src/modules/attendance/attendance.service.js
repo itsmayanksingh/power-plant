@@ -3,6 +3,7 @@ const AppError = require('../../utils/AppError')
 const { paginate } = require('../../utils/paginator')
 const { getUtcDateString } = require('../../utils/dateHelper')
 const { writeAuditLog } = require('../audit-logs/auditLogs.helper')
+const { isAdmin } = require('../../utils/tenant')
 
 async function getCutoffHour () {
   const row = await db('settings').where({ key: 'attendance.cutoff_hour' }).first()
@@ -12,10 +13,11 @@ async function getCutoffHour () {
 async function ensureAssigned (userId, siteId) {
   const assignment = await db('employee_site_assignments').where({ employee_id: userId, site_id: siteId, is_active: true }).first()
   if (!assignment) throw new AppError('User is not assigned to this site', 403)
+  return assignment
 }
 
 async function checkIn ({ userId, siteId, latitude, longitude, ipAddress }) {
-  await ensureAssigned(userId, siteId)
+  const assignment = await ensureAssigned(userId, siteId)
   const attendanceDate = getUtcDateString()
 
   const existing = await db('attendance').where({ user_id: userId, site_id: siteId, attendance_date: attendanceDate }).first()
@@ -28,6 +30,7 @@ async function checkIn ({ userId, siteId, latitude, longitude, ipAddress }) {
   const [row] = await db('attendance').insert({
     user_id: userId,
     site_id: siteId,
+    owner_admin_id: assignment.owner_admin_id,
     check_in: now,
     check_in_lat: latitude,
     check_in_lng: longitude,
@@ -35,7 +38,14 @@ async function checkIn ({ userId, siteId, latitude, longitude, ipAddress }) {
     status
   }).returning('*')
 
-  await writeAuditLog({ actorId: userId, action: 'attendance.check_in', module: 'attendance', entityId: row.id, ipAddress })
+  await writeAuditLog({
+    actorId: userId,
+    ownerAdminId: assignment.owner_admin_id,
+    action: 'attendance.check_in',
+    module: 'attendance',
+    entityId: row.id,
+    ipAddress
+  })
   return row
 }
 
@@ -46,11 +56,18 @@ async function checkOut ({ userId, siteId, ipAddress }) {
   if (record.check_out) throw new AppError('Already checked out', 409)
 
   const [row] = await db('attendance').where({ id: record.id }).update({ check_out: new Date() }).returning('*')
-  await writeAuditLog({ actorId: userId, action: 'attendance.check_out', module: 'attendance', entityId: row.id, ipAddress })
+  await writeAuditLog({
+    actorId: userId,
+    ownerAdminId: row.owner_admin_id,
+    action: 'attendance.check_out',
+    module: 'attendance',
+    entityId: row.id,
+    ipAddress
+  })
   return row
 }
 
-async function list ({ query }) {
+async function list ({ query, actor }) {
   const { page, limit, offset } = paginate(query)
   const qb = db('attendance as a')
     .join('users as u', 'u.id', 'a.user_id')
@@ -58,6 +75,7 @@ async function list ({ query }) {
     .select('a.*', 'u.name as user_name', 'u.email as user_email', 's.name as site_name')
 
   if (query.userId) qb.where('a.user_id', query.userId)
+  if (isAdmin(actor)) qb.where('a.owner_admin_id', actor.id)
   if (query.siteId) qb.where('a.site_id', query.siteId)
   if (query.date) qb.where('a.attendance_date', query.date)
 
@@ -70,8 +88,9 @@ async function myHistory ({ userId, query }) {
   return list({ query: { ...query, userId } })
 }
 
-async function summary ({ query }) {
+async function summary ({ query, actor }) {
   const qb = db('attendance')
+  if (isAdmin(actor)) qb.where('owner_admin_id', actor.id)
   if (query.siteId) qb.where('site_id', query.siteId)
   if (query.date) qb.where('attendance_date', query.date)
 

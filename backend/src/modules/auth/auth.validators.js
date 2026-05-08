@@ -33,11 +33,18 @@ const resetPasswordSchema = z.object({
   })
 })
 
+const impersonateSchema = z.object({
+  params: z.object({
+    adminId: z.string().uuid()
+  })
+})
+
 module.exports = {
   loginSchema,
   refreshSchema,
   logoutSchema,
   changePasswordSchema,
   forgotPasswordSchema,
-  resetPasswordSchema
+  resetPasswordSchema,
+  impersonateSchema
 }

@@ -163,11 +163,66 @@ async function resetPassword ({ email, newPassword }) {
   await writeAuditLog({ actorId: user.id, action: 'auth.reset_password', module: 'auth', entityId: user.id })
 }
 
+async function impersonateAsAdmin ({ superadminId, adminId, ipAddress }) {
+  const superadmin = await db('users').where({ id: superadminId }).first()
+  if (!superadmin || superadmin.role !== 'superadmin' || !superadmin.is_active) {
+    throw new AppError('Only active superadmin can impersonate', 403)
+  }
+
+  const admin = await db('users').where({ id: adminId }).first()
+  if (!admin || admin.role !== 'admin') {
+    throw new AppError('Target must be an admin', 400)
+  }
+  if (!admin.is_active) {
+    throw new AppError('Target admin is deactivated', 403)
+  }
+
+  const accessToken = signAccessToken({
+    id: admin.id,
+    role: admin.role,
+    email: admin.email,
+    impersonatedBy: superadmin.id
+  })
+  const refreshToken = signRefreshToken({
+    id: admin.id,
+    role: admin.role,
+    email: admin.email,
+    impersonatedBy: superadmin.id
+  })
+
+  await db('refresh_tokens').insert({
+    user_id: admin.id,
+    token_hash: hashToken(refreshToken),
+    expires_at: refreshTokenExpiry()
+  })
+
+  await writeAuditLog({
+    actorId: superadmin.id,
+    action: 'auth.impersonate_admin',
+    module: 'auth',
+    entityId: admin.id,
+    newValues: { asAdminId: admin.id },
+    ipAddress
+  })
+
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role
+    }
+  }
+}
+
 module.exports = {
   login,
   refresh,
   logout,
   changePassword,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  impersonateAsAdmin
 }

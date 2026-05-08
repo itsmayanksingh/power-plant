@@ -3,6 +3,7 @@ const AppError = require('../../utils/AppError')
 const { paginate } = require('../../utils/paginator')
 const { hashPassword } = require('../../utils/password')
 const { writeAuditLog } = require('../audit-logs/auditLogs.helper')
+const { isAdmin, ownerAdminIdForActor } = require('../../utils/tenant')
 
 function normalizeEmail (email) {
   return email.trim().toLowerCase()
@@ -32,8 +33,8 @@ async function listUsers ({ query, actor }) {
   const { page, limit, offset } = paginate(query)
   const qb = db('users').select('id', 'name', 'email', 'role', 'phone', 'profile_image', 'is_active', 'created_at', 'updated_at')
 
-  if (actor.role === 'admin') {
-    qb.whereNot('role', 'superadmin')
+  if (isAdmin(actor)) {
+    qb.where('role', 'employee').andWhere('owner_admin_id', actor.id)
   }
 
   if (query.role) qb.where('role', query.role)
@@ -52,16 +53,25 @@ async function listUsers ({ query, actor }) {
 async function getUserById ({ id, actor }) {
   const user = await db('users').where({ id }).first()
   if (!user) throw new AppError('User not found', 404)
-  if (actor.role === 'admin' && user.role === 'superadmin') {
+  if (isAdmin(actor) && (user.role !== 'employee' || user.owner_admin_id !== actor.id)) {
     throw new AppError('Forbidden', 403)
   }
   return toPublicUser(user)
+}
+
+async function ensureSingleSuperadminOnCreate (payload) {
+  if (payload.role !== 'superadmin') return
+  const existing = await db('users').where({ role: 'superadmin', is_active: true }).first()
+  if (existing) {
+    throw new AppError('Only one active superadmin is allowed', 409)
+  }
 }
 
 async function createUser ({ payload, actor, ipAddress }) {
   if (!canCreateRole(actor.role, payload.role)) {
     throw new AppError('Insufficient role permission', 403)
   }
+  await ensureSingleSuperadminOnCreate(payload)
 
   const email = normalizeEmail(payload.email)
   const existing = await db('users').where({ email }).first()
@@ -74,11 +84,13 @@ async function createUser ({ payload, actor, ipAddress }) {
     password_hash: passwordHash,
     role: payload.role,
     phone: payload.phone,
+    owner_admin_id: payload.role === 'employee' ? ownerAdminIdForActor(actor) : null,
     created_by: actor.id
   }).returning('*')
 
   await writeAuditLog({
     actorId: actor.id,
+    ownerAdminId: ownerAdminIdForActor(actor),
     action: 'users.create',
     module: 'users',
     entityId: user.id,
@@ -93,8 +105,17 @@ async function updateUser ({ id, payload, actor, ipAddress }) {
   const user = await db('users').where({ id }).first()
   if (!user) throw new AppError('User not found', 404)
 
-  if (actor.role === 'admin') {
-    if (user.role === 'superadmin' || (payload.role && payload.role !== 'employee')) {
+  if (user.role === 'superadmin') {
+    if (payload.role && payload.role !== 'superadmin') {
+      throw new AppError('Superadmin role cannot be changed', 403)
+    }
+    if (payload.isActive === false) {
+      throw new AppError('Superadmin cannot be deactivated', 403)
+    }
+  }
+
+  if (isAdmin(actor)) {
+    if (user.role !== 'employee' || user.owner_admin_id !== actor.id || (payload.role && payload.role !== 'employee')) {
       throw new AppError('Forbidden', 403)
     }
   }
@@ -104,11 +125,13 @@ async function updateUser ({ id, payload, actor, ipAddress }) {
   if (payload.phone !== undefined) updateData.phone = payload.phone
   if (payload.role !== undefined) updateData.role = payload.role
   if (payload.isActive !== undefined) updateData.is_active = payload.isActive
+  if (payload.role === 'employee' && isAdmin(actor)) updateData.owner_admin_id = actor.id
   updateData.updated_at = new Date()
 
   const [updated] = await db('users').where({ id }).update(updateData).returning('*')
   await writeAuditLog({
     actorId: actor.id,
+    ownerAdminId: ownerAdminIdForActor(actor),
     action: 'users.update',
     module: 'users',
     entityId: id,
@@ -138,6 +161,7 @@ async function updateMe ({ userId, payload, ipAddress }) {
   const [user] = await db('users').where({ id: userId }).update(updateData).returning('*')
   await writeAuditLog({
     actorId: userId,
+    ownerAdminId: null,
     action: 'users.update_self',
     module: 'users',
     entityId: userId,

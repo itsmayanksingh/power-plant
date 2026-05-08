@@ -32,11 +32,21 @@ const resetPassword = asyncHandler(async (req, res) => {
   return success(res, null, 'Password reset successful')
 })
 
+const impersonate = asyncHandler(async (req, res) => {
+  const data = await authService.impersonateAsAdmin({
+    superadminId: req.user.id,
+    adminId: req.params.adminId,
+    ipAddress: req.ip
+  })
+  return success(res, data, 'Impersonation session created')
+})
+
 module.exports = {
   login,
   refresh,
   logout,
   changePassword,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  impersonate
 }

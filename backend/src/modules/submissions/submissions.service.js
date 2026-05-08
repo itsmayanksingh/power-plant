@@ -3,6 +3,7 @@ const AppError = require('../../utils/AppError')
 const { paginate } = require('../../utils/paginator')
 const { getUtcDateString } = require('../../utils/dateHelper')
 const { writeAuditLog } = require('../audit-logs/auditLogs.helper')
+const { isAdmin, ownerAdminIdForActor, ensureAdminOwns } = require('../../utils/tenant')
 
 function validateValueForParameter (param, rawValue) {
   if (rawValue === null || rawValue === undefined || rawValue === '') {
@@ -78,6 +79,7 @@ async function createSubmission ({ userId, payload, ipAddress }) {
     const [submission] = await trx('data_submissions').insert({
       site_id: payload.siteId,
       submitted_by: userId,
+      owner_admin_id: assignment.owner_admin_id,
       submission_date: submissionDate,
       notes: payload.notes
     }).returning('*')
@@ -87,6 +89,7 @@ async function createSubmission ({ userId, payload, ipAddress }) {
 
     await writeAuditLog({
       actorId: userId,
+      ownerAdminId: assignment.owner_admin_id,
       action: 'submissions.create',
       module: 'submissions',
       entityId: submission.id,
@@ -107,6 +110,7 @@ async function listSubmissions ({ query, actor }) {
     .select('s.*', 'u.name as submitter_name', 'u.email as submitter_email', 'si.name as site_name')
 
   if (actor.role === 'employee') qb.where('s.submitted_by', actor.id)
+  if (isAdmin(actor)) qb.where('s.owner_admin_id', actor.id)
   if (query.siteId) qb.where('s.site_id', query.siteId)
   if (query.submittedBy) qb.where('s.submitted_by', query.submittedBy)
   if (query.date) qb.where('s.submission_date', query.date)
@@ -120,6 +124,7 @@ async function listSubmissions ({ query, actor }) {
 async function getSubmissionById ({ id, actor }) {
   const submission = await db('data_submissions').where({ id }).first()
   if (!submission) throw new AppError('Submission not found', 404)
+  ensureAdminOwns(submission.owner_admin_id, actor)
   if (actor.role === 'employee' && submission.submitted_by !== actor.id) {
     throw new AppError('Forbidden', 403)
   }
@@ -135,21 +140,35 @@ async function getSubmissionById ({ id, actor }) {
 async function updateStatus ({ id, status, actor, ipAddress }) {
   const submission = await db('data_submissions').where({ id }).first()
   if (!submission) throw new AppError('Submission not found', 404)
+  ensureAdminOwns(submission.owner_admin_id, actor)
 
   const [row] = await db('data_submissions').where({ id }).update({ status }).returning('*')
-  await writeAuditLog({ actorId: actor.id, action: 'submissions.status', module: 'submissions', entityId: id, oldValues: { status: submission.status }, newValues: { status }, ipAddress })
+  await writeAuditLog({
+    actorId: actor.id,
+    ownerAdminId: ownerAdminIdForActor(actor),
+    action: 'submissions.status',
+    module: 'submissions',
+    entityId: id,
+    oldValues: { status: submission.status },
+    newValues: { status },
+    ipAddress
+  })
   return row
 }
 
-async function missingSubmissions ({ date }) {
+async function missingSubmissions ({ date, actor }) {
   const targetDate = date || getUtcDateString()
-  const assignments = await db('employee_site_assignments as a')
+  const assignmentsQb = db('employee_site_assignments as a')
     .join('users as u', 'u.id', 'a.employee_id')
     .join('sites as s', 's.id', 'a.site_id')
     .where('a.is_active', true)
     .select('a.employee_id', 'u.name as employee_name', 'a.site_id', 's.name as site_name')
+  if (isAdmin(actor)) assignmentsQb.andWhere('a.owner_admin_id', actor.id)
+  const assignments = await assignmentsQb
 
-  const submitted = await db('data_submissions').where({ submission_date: targetDate }).select('submitted_by', 'site_id')
+  const submittedQb = db('data_submissions').where({ submission_date: targetDate }).select('submitted_by', 'site_id')
+  if (isAdmin(actor)) submittedQb.andWhere('owner_admin_id', actor.id)
+  const submitted = await submittedQb
   const submittedSet = new Set(submitted.map(r => `${r.submitted_by}:${r.site_id}`))
 
   return assignments.filter(a => !submittedSet.has(`${a.employee_id}:${a.site_id}`)).map(a => ({ ...a, date: targetDate }))

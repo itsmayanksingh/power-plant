@@ -13,12 +13,12 @@ const remove = asyncHandler(async (req, res) => {
 })
 
 const bySite = asyncHandler(async (req, res) => {
-  const data = await service.listBySite({ siteId: req.params.id })
+  const data = await service.listBySite({ siteId: req.params.id, actor: req.user })
   return success(res, data)
 })
 
 const byUser = asyncHandler(async (req, res) => {
-  const data = await service.listByUser({ userId: req.params.id })
+  const data = await service.listByUser({ userId: req.params.id, actor: req.user })
   return success(res, data)
 })
 

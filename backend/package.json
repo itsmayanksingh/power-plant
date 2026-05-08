@@ -9,6 +9,8 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
+    "seed:mobile-e2e": "node scripts/seed-mobile-e2e-dummy.js",
+    "test:e2e:deep": "node scripts/e2e-deep-check.js",
     "test": "jest --runInBand",
     "lint": "eslint ."
   },

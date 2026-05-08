@@ -1,9 +1,10 @@
 const { z } = require('zod')
+const pageOrLimitSchema = z.union([z.string(), z.number()]).optional()
 
 const listSchema = z.object({
   query: z.object({
-    page: z.string().optional(),
-    limit: z.string().optional(),
+    page: pageOrLimitSchema,
+    limit: pageOrLimitSchema,
     module: z.string().optional(),
     actorId: z.string().uuid().optional()
   })

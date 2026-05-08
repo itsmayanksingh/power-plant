@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,10 +8,18 @@ import { toast } from "sonner";
 import { loginSchema, type LoginFormValues } from "@/features/auth/schemas/login.schema";
 import { login } from "@/services/auth.service";
 import { useAuthStore } from "@/store/auth.store";
+import { clearAuthTokens } from "@/lib/auth/tokens";
 
 export default function LoginPage() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("denied") === "panel") {
+      toast.error("Permission denied for admin panel. Only admin/superadmin allowed.");
+      clearAuthTokens();
+    }
+  }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -20,6 +29,11 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       const res = await login(values);
+      if (res?.data?.user?.role === "employee") {
+        clearAuthTokens();
+        toast.error("Permission denied for admin panel. Only admin/superadmin allowed.");
+        return;
+      }
       setSession(res.data);
       toast.success("Login successful");
       router.push("/dashboard");
