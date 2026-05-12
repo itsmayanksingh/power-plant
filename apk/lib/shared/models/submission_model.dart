@@ -21,7 +21,9 @@ class SubmissionValueModel {
       parameterName: (json['parameter_name'] ?? json['parameterName'] ?? '').toString(),
       parameterType: (json['parameter_type'] ?? json['parameterType'] ?? '').toString(),
       valueText: json['value_text']?.toString(),
-      valueNumber: (json['value_number'] as num?)?.toDouble(),
+      valueNumber: json['value_number'] is num
+          ? (json['value_number'] as num).toDouble()
+          : double.tryParse('${json['value_number'] ?? ''}'),
     );
   }
 }
@@ -49,9 +51,9 @@ class SubmissionModel {
     final valuesRaw = json['values'];
     final values = valuesRaw is List
         ? valuesRaw
-            .whereType<Map>()
-            .map((e) => SubmissionValueModel.fromJson(Map<String, dynamic>.from(e)))
-            .toList()
+        .whereType<Map>()
+        .map((e) => SubmissionValueModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList()
         : <SubmissionValueModel>[];
     return SubmissionModel(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
@@ -64,4 +66,3 @@ class SubmissionModel {
     );
   }
 }
-

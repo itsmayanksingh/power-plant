@@ -9,5 +9,5 @@ Future<void> main() async {
   await Hive.initFlutter();
   await LocalDb.init();
   runApp(const PlantMonitoringApp());
-}
 
+}

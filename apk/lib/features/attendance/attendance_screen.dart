@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-
 import '../../core/services/toast_service.dart';
-import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/status_chip.dart';
 import '../../shared/models/attendance_model.dart';
 import '../../shared/repositories/backend_repository.dart';
@@ -27,17 +25,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
       _siteId = await BackendRepository.instance.resolveCurrentSiteId();
-      _records = await BackendRepository.instance.myAttendance();
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() => _loading = false);
+      final records = await BackendRepository.instance.myAttendance();
+      if (mounted) setState(() => _records = records);
+    } catch (e) {
+      debugPrint('AttendanceScreen._load error: $e');
+      if (mounted) ToastService.error('Failed to load attendance');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _mark(bool checkIn) async {
-    setState(() => _submitting = true);
+    if (mounted) setState(() => _submitting = true);
     try {
       final permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied ||
@@ -45,8 +47,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ToastService.error('Location permission denied');
         return;
       }
+
       final pos = await Geolocator.getCurrentPosition();
-      final siteId = _siteId ?? await BackendRepository.instance.resolveCurrentSiteId();
+      final siteId =
+          _siteId ?? await BackendRepository.instance.resolveCurrentSiteId();
+
       if (checkIn) {
         await BackendRepository.instance.checkIn(
           siteId: siteId,
@@ -62,12 +67,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         );
         ToastService.success('Check-out marked');
       }
+
       await _load();
     } catch (e) {
+      debugPrint('AttendanceScreen._mark error: $e');
       ToastService.error('Attendance failed: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  String _fmt(DateTime? dt) {
+    if (dt == null) return '-';
+    final t = dt.toLocal();
+    final d = t.day.toString().padLeft(2, '0');
+    final mo = t.month.toString().padLeft(2, '0');
+    final h = t.hour.toString().padLeft(2, '0');
+    final mi = t.minute.toString().padLeft(2, '0');
+    return '$d/$mo/${t.year}  $h:$mi';
   }
 
   @override
@@ -75,8 +92,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: EdgeInsets.zero,
+        padding: const EdgeInsets.all(16),
         children: <Widget>[
+          // ── Check In / Check Out buttons ──
           Row(
             children: <Widget>[
               Expanded(
@@ -96,26 +114,59 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: 16),
+
+          // ── Loading indicator ──
           if (_loading) const LinearProgressIndicator(),
-          const Text('Today and previous marks', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          if (!_loading && _records.isEmpty)
-            const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('No attendance records found.'))),
-          ..._records.map(
-            (record) => Card(
-              child: ListTile(
-                title: Text('${record.siteName.isEmpty ? 'Site' : record.siteName} • ${record.attendanceDate}'),
-                subtitle: Text(
-                  'In: ${record.checkIn != null ? AppDateFormatter.dateTime(record.checkIn!) : '-'}'
-                  '\nOut: ${record.checkOut != null ? AppDateFormatter.dateTime(record.checkOut!) : '-'}'
-                  '\nLat/Lng: ${record.checkInLat?.toStringAsFixed(4) ?? '-'} / ${record.checkInLng?.toStringAsFixed(4) ?? '-'}',
+
+          if (!_loading) ...[
+            const Text(
+              'Today and previous marks',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+
+            // ── Empty state ──
+            if (_records.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No attendance records found.'),
                 ),
-                isThreeLine: true,
-                trailing: StatusChip(status: record.status),
+              ),
+
+            // ── Records list ──
+            ..._records.map(
+                  (record) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  title: Text(
+                    '${record.siteName.isEmpty ? 'Site' : record.siteName}'
+                        '  •  ${record.attendanceDate}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Check-in:   ${_fmt(record.checkIn)}'
+                          '\nCheck-out: ${_fmt(record.checkOut)}'
+                          '\nLat / Lng:  '
+                          '${record.checkInLat?.toStringAsFixed(4) ?? '-'} / '
+                          '${record.checkInLng?.toStringAsFixed(4) ?? '-'}',
+                      style: const TextStyle(height: 1.6),
+                    ),
+                  ),
+                  isThreeLine: true,
+                  trailing: StatusChip(status: record.status),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -18,15 +18,23 @@ class SiteParameter {
   final double? max;
 
   factory SiteParameter.fromJson(Map<String, dynamic> json) {
+    double? tryDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString().trim());
+    }
+
     final optionsRaw = json['options'];
     return SiteParameter(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       type: (json['type'] ?? 'text').toString(),
       required: (json['required'] ?? json['is_required'] ?? false) == true,
-      options: optionsRaw is List ? optionsRaw.map((e) => '$e').toList() : const <String>[],
-      min: ((json['min'] ?? json['min_value']) as num?)?.toDouble(),
-      max: ((json['max'] ?? json['max_value']) as num?)?.toDouble(),
+      options: optionsRaw is List
+          ? optionsRaw.map((e) => '$e').toList()
+          : const <String>[],
+      min: tryDouble(json['min'] ?? json['min_value']),   // ✅ safe
+      max: tryDouble(json['max'] ?? json['max_value']),   // ✅ safe
     );
   }
 }

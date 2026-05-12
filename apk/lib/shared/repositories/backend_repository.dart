@@ -76,7 +76,11 @@ class BackendRepository {
 
   Future<List<AttendanceModel>> myAttendance() async {
     final data = await _client.get(ApiConstants.attendanceMy);
+    print('=== ATTENDANCE RAW RESPONSE ===');
+    print(data);
     final list = _extractList(data);
+    print('=== EXTRACTED LIST LENGTH: ${list.length} ===');
+    if (list.isNotEmpty) print('=== FIRST RECORD: ${list.first} ===');
     return list.map(AttendanceModel.fromJson).toList();
   }
 
@@ -233,11 +237,12 @@ class BackendRepository {
         (data['rows'] as List?) ??
         (data['submissions'] as List?) ??
         (data['attendance'] as List?) ??
+        (data['records'] as List?) ??   // <-- add
+        (data['results'] as List?) ??   // <-- add
         (data['data'] as List?) ??
         <dynamic>[];
     return listRaw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
-
   UserModel _userFromAny(Map<String, dynamic> data) {
     if (data['user'] is Map<String, dynamic>) {
       return UserModel.fromJson(data['user'] as Map<String, dynamic>);
