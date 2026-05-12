@@ -3,11 +3,7 @@ class ApiConstants {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-<<<<<<< Updated upstream
-    defaultValue: 'http://10.0.2.2:4000',
-=======
     defaultValue: 'http://10.216.13.241:5000',
->>>>>>> Stashed changes
   );
   static const String apiPrefix = '/api/v1';
 
