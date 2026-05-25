@@ -126,6 +126,8 @@ class BackendRepository {
 
   Future<List<SubmissionModel>> mySubmissions() async {
     final data = await _client.get(ApiConstants.submissions);
+    print('=== SUBMISSIONS RAW ===');  // 👈 add karo
+    print(data);                        // 👈 add karo
     final list = _extractList(data);
     return list.map(SubmissionModel.fromJson).toList();
   }
